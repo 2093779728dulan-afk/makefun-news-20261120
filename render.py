@@ -23,7 +23,7 @@ def get_font(size, bold=False, italic=False):
     except:
         return ImageFont.load_default()
 
-def draw_text_wrapped(draw, text, x, y, font, max_width, fill="black", line_spacing=3):
+def draw_text_wrapped(draw, text, x, y, font, max_width, fill="black", line_spacing=3, max_height=None):
     words = text.split()
     lines = []
     current_line = []
@@ -40,17 +40,32 @@ def draw_text_wrapped(draw, text, x, y, font, max_width, fill="black", line_spac
     if current_line:
         lines.append(" ".join(current_line))
     
-    for i, line in enumerate(lines):
-        draw.text((x, y + i * (font.size + line_spacing)), line, font=font, fill=fill)
+    line_height = font.size + line_spacing
+    max_lines = len(lines)
+    if max_height is not None:
+        max_lines = min(max_lines, max(1, max_height // line_height))
     
-    return len(lines) * (font.size + line_spacing)
+    drawn_lines = lines[:max_lines]
+    for i, line in enumerate(drawn_lines):
+        draw.text((x, y + i * line_height), line, font=font, fill=fill)
+    
+    if len(lines) > max_lines and drawn_lines:
+        last_line = drawn_lines[-1]
+        ellipsis = "..."
+        while draw.textbbox((0, 0), last_line + ellipsis, font=font)[2] - draw.textbbox((0, 0), last_line + ellipsis, font=font)[0] > max_width:
+            last_line = last_line[:-1]
+            if not last_line:
+                last_line = ellipsis
+                break
+        draw.text((x, y + (max_lines - 1) * line_height), last_line + ellipsis, font=font, fill=fill)
+    
+    return min(len(lines), max_lines) * line_height
 
 def draw_column_headline(draw, x, y, width, kicker, headline, font_kicker, font_headline, fill_kicker, fill_headline, line_color):
-    """Draw a two-line column headline with kicker and main headline"""
+    """Draw a column headline with kicker and wrapped main headline"""
     draw.text((x, y), kicker, font=font_kicker, fill=fill_kicker)
     kicker_h = font_kicker.size + 4
-    draw.text((x, y + kicker_h), headline, font=font_headline, fill=fill_headline)
-    headline_h = font_headline.size + 4
+    headline_h = draw_text_wrapped(draw, headline, x, y + kicker_h, font_headline, width, fill=fill_headline, line_spacing=2)
     draw.line([(x, y + kicker_h + headline_h + 4), (x + width, y + kicker_h + headline_h + 4)], fill=line_color, width=1)
     return kicker_h + headline_h + 12
 
@@ -135,8 +150,11 @@ def main():
     h_used = draw_column_headline(draw, x + 10, row_y + 8, col_width - 20,
         "WORLD", "ICJ Rules Myanmar Committed Genocide", font_kicker, font_col_headline, RED, BLACK, LINE_COLOR)
     body1 = "The International Court of Justice has ruled that Myanmar committed genocide against the Rohingya Muslim minority, marking the first time the UN's top court has held a state responsible for the crime of genocide. The 15-judge panel found Myanmar's 2017 military campaign constituted genocidal acts."
-    draw_text_wrapped(draw, body1, x + 10, row_y + 8 + h_used, font_body_sm, col_width - 20, fill=DARK_GRAY, line_spacing=2)
-    draw.text((x + 10, row_y + col_height - 22), "By MARIA SANTOS, The Hague", font=font_byline, fill=MED_GRAY)
+    body_y = row_y + 8 + h_used
+    byline_y = row_y + col_height - 22
+    max_body_h = byline_y - body_y - 6
+    draw_text_wrapped(draw, body1, x + 10, body_y, font_body_sm, col_width - 20, fill=DARK_GRAY, line_spacing=2, max_height=max_body_h)
+    draw.text((x + 10, byline_y), "By MARIA SANTOS, The Hague", font=font_byline, fill=MED_GRAY)
     
     # Column 2: Anthropic IPO
     x = col_starts[1]
@@ -145,8 +163,11 @@ def main():
     h_used = draw_column_headline(draw, x + 10, row_y + 8, col_width - 20,
         "TECHNOLOGY", "Anthropic's Record IPO Largest Ever at $107B", font_kicker, font_col_headline, RED, BLACK, LINE_COLOR)
     body2 = "Anthropic shattered records with a $107 billion IPO at a $1.5 trillion valuation, the largest public offering ever. Shares surged 42% on debut as investors bet on constitutional AI leadership. The raise dwarfs Saudi Aramco's $29.4B record."
-    draw_text_wrapped(draw, body2, x + 10, row_y + 8 + h_used, font_body_sm, col_width - 20, fill=DARK_GRAY, line_spacing=2)
-    draw.text((x + 10, row_y + col_height - 22), "By DAVID PARK, Tech Editor", font=font_byline, fill=MED_GRAY)
+    body_y = row_y + 8 + h_used
+    byline_y = row_y + col_height - 22
+    max_body_h = byline_y - body_y - 6
+    draw_text_wrapped(draw, body2, x + 10, body_y, font_body_sm, col_width - 20, fill=DARK_GRAY, line_spacing=2, max_height=max_body_h)
+    draw.text((x + 10, byline_y), "By DAVID PARK, Tech Editor", font=font_byline, fill=MED_GRAY)
     
     # Column 3: US Midterms
     x = col_starts[2]
@@ -155,8 +176,11 @@ def main():
     h_used = draw_column_headline(draw, x + 10, row_y + 8, col_width - 20,
         "POLITICS", "Democrats Sweep Midterms, Biggest House Win in 50 Years", font_kicker, font_col_headline, RED, BLACK, LINE_COLOR)
     body3 = "Democrats captured 56% of the House vote vs 42% for Republicans, the largest margin since 1974. Hakeem Jeffries nominated for Speaker. Gains driven by abortion rights, democracy concerns, and economic anxiety. Senate remains 51-49 Democratic."
-    draw_text_wrapped(draw, body3, x + 10, row_y + 8 + h_used, font_body_sm, col_width - 20, fill=DARK_GRAY, line_spacing=2)
-    draw.text((x + 10, row_y + col_height - 22), "By SARAH WILLIAMS, Washington", font=font_byline, fill=MED_GRAY)
+    body_y = row_y + 8 + h_used
+    byline_y = row_y + col_height - 22
+    max_body_h = byline_y - body_y - 6
+    draw_text_wrapped(draw, body3, x + 10, body_y, font_body_sm, col_width - 20, fill=DARK_GRAY, line_spacing=2, max_height=max_body_h)
+    draw.text((x + 10, byline_y), "By SARAH WILLIAMS, Washington", font=font_byline, fill=MED_GRAY)
     
     # Column 4: US-Venezuela military ties
     x = col_starts[3]
@@ -165,8 +189,11 @@ def main():
     h_used = draw_column_headline(draw, x + 10, row_y + 8, col_width - 20,
         "DEFENSE", "U.S.-Venezuela Restore Military Ties", font_kicker, font_col_headline, RED, BLACK, LINE_COLOR)
     body4 = "Defense Secretary Pete Hegseth made a surprise visit to Caracas, signing a defense cooperation agreement restoring military-to-military contacts severed since 2019. Pact includes counter-narcotics, disaster response, and regional security coordination."
-    draw_text_wrapped(draw, body4, x + 10, row_y + 8 + h_used, font_body_sm, col_width - 20, fill=DARK_GRAY, line_spacing=2)
-    draw.text((x + 10, row_y + col_height - 22), "By CARLOS MENDOZA, Caracas", font=font_byline, fill=MED_GRAY)
+    body_y = row_y + 8 + h_used
+    byline_y = row_y + col_height - 22
+    max_body_h = byline_y - body_y - 6
+    draw_text_wrapped(draw, body4, x + 10, body_y, font_body_sm, col_width - 20, fill=DARK_GRAY, line_spacing=2, max_height=max_body_h)
+    draw.text((x + 10, byline_y), "By CARLOS MENDOZA, Caracas", font=font_byline, fill=MED_GRAY)
     
     y = row_y + col_height + 18
     
